@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LANDING FACTORY — AI 랜딩 가설 실험기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+    .font-serif-kr { font-family: 'Noto Serif KR', serif; }
+    .theme-premium { background: #0b0c10; color: #f5f5f7; }
+    .theme-direct { background: #ffffff; color: #111827; }
+    .theme-minimal { background: #fafafa; color: #18181b; }
+    .theme-trust { background: #f8fafc; color: #0f172a; }
+    .theme-editorial { background: #fdfbf7; color: #292524; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen">
+
+  <!-- 독립 단독 랜딩페이지 뷰 (스마트폰/외부 접속 시 이 화면만 뜸) -->
+  <div id="standalone-view" class="hidden min-h-screen bg-white">
+    <div class="bg-gray-900 text-white text-xs px-4 py-2 flex justify-between items-center border-b border-gray-800">
+      <div class="flex items-center gap-2">
+        <span class="bg-emerald-500 text-black font-bold px-1.5 py-0.5 rounded text-[10px]">LIVE PAGE</span>
+        <span id="standalone-page-id" class="font-mono text-gray-300"></span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="copyCurrentURL()" class="bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded text-white font-medium">
+          📋 URL 복사
+        </button>
+        <button onclick="exitStandalone()" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded font-bold text-white">
+          ← 랜딩 팩토리 홈
+        </button>
+      </div>
+    </div>
+    <div id="standalone-content"></div>
+  </div>
+
+  <!-- 관리자 대시보드 화면 -->
+  <div id="admin-app" class="max-w-7xl mx-auto px-4 py-8">
+    <header class="flex flex-wrap justify-between items-center gap-4 mb-8 pb-4 border-b border-gray-200">
+      <div>
+        <h1 class="text-2xl font-black tracking-tight text-gray-950 flex items-center gap-2">
+          ⚡ LANDING FACTORY <span class="text-xs bg-black text-white px-2.5 py-1 rounded font-mono font-bold">PORTABLE WEB</span>
+        </h1>
+        <p class="text-sm text-gray-500 mt-1">10대 마케팅 가설 생성 → <b>어느 기기에서나 100% 작동하는 진짜 URL 복사</b></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="nav-btn-input" onclick="switchTab('input')" class="px-4 py-2 text-sm font-bold rounded-lg bg-black text-white shadow-sm">
+          새 실험 생성
+        </button>
+        <button id="nav-btn-list" onclick="switchTab('list')" class="px-4 py-2 text-sm font-bold rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm flex items-center gap-2">
+          <span>생성된 랜딩 매트릭스</span>
+          <span id="badge-count" class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-mono">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 입력 폼 -->
+    <section id="view-input" class="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h2 class="text-lg font-bold text-gray-900">상품 정보 및 시장 가설 입력</h2>
+          <p class="text-xs text-gray-500">정보를 입력하면 10개의 설득 전략 페이지가 생성됩니다.</p>
+        </div>
+        <button type="button" onclick="loadGoldSample()" class="text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-md">
+          ⚡ '황금시대' 예시 채우기
+        </button>
+      </div>
+
+      <form onsubmit="generateLandings(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">브랜드명</label>
+          <input type="text" id="f-brand" required placeholder="예: 황금시대" class="w-full px-3.5 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-black outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">상품 / 서비스</label>
+          <input type="text" id="f-product" required placeholder="예: 금은방 무료 금시세 상담" class="w-full px-3.5 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-black outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">타깃 고객</label>
+          <input type="text" id="f-target" required placeholder="예: 30~50대 여성 (장롱 속 잠자는 금 처분 고민)" class="w-full px-3.5 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-black outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">고객의 핵심 문제 / 결핍</label>
+          <textarea id="f-problem" rows="3" required placeholder="예: 내가 가진 금이 현재 얼마인지 모르고, 금을 팔 때 손해 볼까 걱정한다." class="w-full px-3.5 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-black outline-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">원하는 전환 행동 (CTA)</label>
+          <input type="text" id="f-action" required placeholder="예: 무료 상담 신청" class="w-full px-3.5 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-black outline-none">
+        </div>
+        <div class="pt-4">
+          <button type="submit" class="w-full py-4 bg-gray-950 hover:bg-black text-white font-extrabold rounded-xl shadow-lg transition-all">
+            🚀 10개 전략 랜딩페이지 일괄 생성하기
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 목록 뷰 -->
+    <section id="view-list" class="hidden">
+      <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <div>
+          <h2 class="text-xl font-black">시장 가설 매트릭스 (10개 전략)</h2>
+          <p class="text-xs text-gray-500">각 카드의 <b>[🔗 URL 복사]</b>를 누르면 다른 사람 스마트폰에서도 즉시 열리는 주소가 복사됩니다.</p>
+        </div>
+        <button onclick="resetAll()" class="px-3 py-1.5 text-xs bg-red-50 text-red-700 border border-red-200 font-semibold rounded hover:bg-red-100">초기화</button>
+      </div>
+      <div id="grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    </section>
+
+    <!-- 수정 모달 -->
+    <div id="modal-edit" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b flex justify-between items-center shrink-0">
+          <h3 class="font-bold text-gray-900">랜딩 카피 & 코드 수정</h3>
+          <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-700 text-xl font-bold">&times;</button>
+        </div>
+        <div class="p-6 overflow-y-auto space-y-4 flex-1 text-sm">
+          <input type="hidden" id="edit-target-id">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">메인 헤드라인</label>
+            <textarea id="edit-headline" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm font-bold"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">서브 헤드라인</label>
+            <textarea id="edit-subheadline" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">CTA 버튼 문구</label>
+            <input type="text" id="edit-cta" class="w-full px-3 py-2 border rounded-lg text-sm font-bold text-blue-600">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">커스텀 HTML / 영상 코드</label>
+            <textarea id="edit-custom-code" rows="3" placeholder="<iframe... 또는 커스텀 HTML 배너" class="w-full px-3 py-2 border rounded-lg text-xs font-mono"></textarea>
+          </div>
+        </div>
+        <div class="px-6 py-3 bg-gray-50 border-t flex justify-end gap-2">
+          <button onclick="closeEditModal()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
+          <button onclick="applyEditChanges()" class="px-5 py-2 text-sm bg-black text-white font-bold rounded-lg hover:bg-gray-800">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STRATEGY_PRESETS = [
+      { code: "01", name: "가격형", hypothesis: "지금 내 금의 가치", theme: "premium", badge: "실시간 최고가 환산", headline: (b,p) => `장롱 속 잠자는 금, 오늘 최고 시세로 계산하면 얼마일까요?`, sub: (b,p) => `1분 만에 수수료 거품 없는 순수 실지급 예상 금액을 확인해 드립니다.`, problem: (prob) => `모든 매장이 같은 시세를 주지 않습니다. 정확한 당일 기준가와 분석표를 직접 확인하세요.`, cta: (act) => `지금 내 금 예상 환급액 확인하기` },
+      { code: "02", name: "손실회피형", hypothesis: "잘못 팔면 손해", theme: "direct", badge: "주의: 처분 시 수수료 주의", headline: (b,p) => `모르고 처분하면 최대 15% 손해봅니다. 방문 전 필수 확인!`, sub: (b,p) => `중량 속임수, 불투명한 정제비 차감 없이 내 소중한 금 제값 지키는 법`, problem: (prob) => `${prob} — 손해 보고 처분한 뒤에는 되돌릴 수 없습니다.`, cta: (act) => `손해 없이 제값 받는 무료 감정 신청` },
+      { code: "03", name: "무료혜택형", hypothesis: "부담 없는 무료 상담", theme: "minimal", badge: "100% 무료 시세 리포트 증정", headline: (b,p) => `상담만 받아도 당일 정밀 시세 분석표를 무료로 드립니다.`, sub: (b,p) => `처분하지 않아도 괜찮습니다. 부담 없이 현재 보유 가치만 먼저 측정해보세요.`, problem: (prob) => `어떤 수수료나 판매 권유도 일절 없습니다. 순수한 시세 진단 서비스입니다.`, cta: (act) => `무료 시세 리포트 받아보기` },
+      { code: "04", name: "신뢰형", hypothesis: "전문성과 국가공인 감정", theme: "trust", badge: "국가공인 감정 / 20년 전문 노하우", headline: (b,p) => `눈앞에서 정밀 저울로 0.01g까지 투명하게 공개 감정합니다.`, sub: (b,p) => `국가공인 표준 장비로 투명한 측정을 약속합니다.`, problem: (prob) => `신뢰할 수 없는 거래는 이제 그만. 밀폐형 전자저울과 성적표를 즉시 교부합니다.`, cta: (act) => `공인 전문가 안심 상담 예약하기` },
+      { code: "05", name: "교육형", hypothesis: "처분 전 알아야 할 3가지 진실", theme: "editorial", badge: "실전 가이드 2026", headline: (b,p) => `처분하러 가기 전, 일반 소비자가 모르는 '3가지 비밀'`, sub: (b,p) => `각인 확인법부터 합금 정제비의 진실까지 알기 쉽게 정리해 드립니다.`, problem: (prob) => `지식이 없으면 주는 대로 받을 수밖에 없습니다. 3분만 읽어보고 똑똑하게 거래하세요.`, cta: (act) => `핵심 체크리스트 무료 열람` },
+      { code: "06", name: "긴급성형", hypothesis: "최고가 구간 골든타임", theme: "direct", badge: "시세 변동 급증 알림", headline: (b,p) => `역대급 시세 변동기! 오늘 시점 골든타임을 놓치지 마세요.`, sub: (b,p) => `시세는 매일 바뀝니다. 오늘 형성된 당일 최고점 매도가를 지금 확인하세요.`, problem: (prob) => `망설이는 사이에 시세가 하락할 수 있습니다. 오늘의 실시간 최고가를 바로 조회하세요.`, cta: (act) => `오늘자 마감 최고 시세 즉시 확인` },
+      { code: "07", name: "문제해결형", hypothesis: "복잡한 고민 5분 해결", theme: "minimal", badge: "간편 해결 서비스", headline: (b,p) => `낡은 제품, 끊어진 부속... 보증서 없어도 5분이면 즉시 해결!`, sub: (b,p) => `손상 여부 불문. 사진 한 장으로 예상 가치를 바로 확인해 드립니다.`, problem: (prob) => `${prob} 걱정하지 마세요. 보증서가 없어도 정밀 비중계로 제 가치를 찾아드립니다.`, cta: (act) => `사진으로 1분 간편 시세 조회` },
+      { code: "08", name: "스토리형", hypothesis: "실제 고객 인터뷰", theme: "editorial", badge: "실제 고객 사례 리포트", headline: (b,p) => `“서랍 속 10년 된 패물, 일반 매장보다 48만 원 더 받았습니다.”`, sub: (b,p) => `30대 고객이 세 군데 견적을 비교하고 선택한 실제 이유`, problem: (prob) => `막연한 두려움 대신, 실제 고객들이 겪었던 투명한 견적 과정을 가감 없이 공유합니다.`, cta: (act) => `나도 똑같이 최고가 견적 받아보기` },
+      { code: "09", name: "비교형", hypothesis: "일반 판매 vs 전문 정밀 감정", theme: "trust", badge: "투명 견적 팩트 체크", headline: (b,p) => `일반 매장 견적과 전문 정밀 감정의 차이를 확인하세요.`, sub: (b,p) => `눈대중 어림셈 vs 0.01g 디지털 정밀 계량 및 거래소 기준 연동`, problem: (prob) => `두루뭉술한 감정가에 속지 마세요. 항목별 명세서를 투명하게 대조해 드립니다.`, cta: (act) => `비교 견적 진단표 신청하기` },
+      { code: "10", name: "직관형", hypothesis: "군더더기 없는 3초 CTA", theme: "minimal", badge: "3초 무료 확인", headline: (b,p) => `지금 가지고 계신 품목, 3초 만에 시세 조회하세요.`, sub: (b,p) => `전화번호만 입력하면 오늘자 기준가를 문자로 바로 전송해 드립니다.`, problem: (prob) => `설명은 필요 없습니다. 지금 바로 숫자로 확인하세요.`, cta: (act) => `3초 만에 시세 확인하기` }
+    ];
+
+    let appState = { base: null, landings: [] };
+
+    // [핵심] URL 자체에서 데이터 파싱 (어느 스마트폰/PC에서 열어도 100% 작동)
+    function checkHashRoute() {
+      const hash = window.location.hash;
+      if (!hash) {
+        document.getElementById('standalone-view').classList.add('hidden');
+        document.getElementById('admin-app').classList.remove('hidden');
+        return false;
+      }
+
+      let targetData = null;
+
+      // 1. URL 쿼리에 포터블 데이터(?p=...)가 실려 있는 경우
+      if (hash.includes('?p=')) {
+        try {
+          const raw = hash.split('?p=')[1];
+          targetData = JSON.parse(decodeURIComponent(escape(atob(raw))));
+        } catch(e) { console.error("URL 파싱 실패", e); }
+      }
+
+      // 2. 로컬스토리지에 있는 경우
+      if (!targetData) {
+        const cleanId = hash.replace('#', '').split('?')[0];
+        const stored = localStorage.getItem('LANDING_FACTORY_STORE');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            targetData = parsed.landings.find(l => l.id === cleanId);
+          } catch(e) {}
+        }
+      }
+
+      // 3. 아무 데이터도 없으면 기본 샘플로 렌더링 (절대 빈 화면 안 뜸)
+      if (!targetData) {
+        const strat = STRATEGY_PRESETS[0];
+        targetData = {
+          id: "gold-01",
+          strategyName: strat.name,
+          theme: strat.theme,
+          badge: strat.badge,
+          headline: strat.headline("황금시대", "금시세 상담"),
+          subheadline: strat.sub("황금시대", "금시세 상담"),
+          problemSection: strat.problem("손해 볼까 걱정된다."),
+          ctaText: strat.cta("무료 상담"),
+          brand: "황금시대"
+        };
+      }
+
+      document.getElementById('admin-app').classList.add('hidden');
+      document.getElementById('standalone-view').classList.remove('hidden');
+      document.getElementById('standalone-page-id').innerText = `${targetData.brand} [${targetData.strategyName}]`;
+      document.getElementById('standalone-content').innerHTML = buildLandingHTML(targetData);
+      window.scrollTo(0, 0);
+      return true;
+    }
+
+    function exitStandalone() {
+      window.location.hash = '';
+      checkHashRoute();
+    }
+
+    window.addEventListener('hashchange', checkHashRoute);
+
+    function initApp() {
+      if (checkHashRoute()) return;
+      const stored = localStorage.getItem('LANDING_FACTORY_STORE');
+      if (stored) {
+        try {
+          appState = JSON.parse(stored);
+          refreshBadge();
+          if (appState.landings && appState.landings.length > 0) {
+            renderMatrixGrid();
+            switchTab('list');
+            return;
+          }
+        } catch(e) {}
+      }
+      switchTab('input');
+    }
+
+    function saveApp() {
+      localStorage.setItem('LANDING_FACTORY_STORE', JSON.stringify(appState));
+      refreshBadge();
+    }
+
+    function refreshBadge() {
+      document.getElementById('badge-count').innerText = appState.landings ? appState.landings.length : 0;
+    }
+
+    function switchTab(tab) {
+      document.getElementById('view-input').classList.toggle('hidden', tab !== 'input');
+      document.getElementById('view-list').classList.toggle('hidden', tab !== 'list');
+      const bIn = document.getElementById('nav-btn-input');
+      const bLs = document.getElementById('nav-btn-list');
+      if (tab === 'input') {
+        bIn.className = "px-4 py-2 text-sm font-bold rounded-lg bg-black text-white shadow-sm";
+        bLs.className = "px-4 py-2 text-sm font-bold rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm";
+      } else {
+        bIn.className = "px-4 py-2 text-sm font-bold rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm";
+        bLs.className = "px-4 py-2 text-sm font-bold rounded-lg bg-blue-600 text-white shadow-sm";
+      }
+    }
+
+    function loadGoldSample() {
+      document.getElementById('f-brand').value = "황금시대";
+      document.getElementById('f-product').value = "금은방 무료 금시세 상담";
+      document.getElementById('f-target').value = "30~50대 여성 (장롱 속 잠자는 금 처분 고민)";
+      document.getElementById('f-problem').value = "내가 가진 금이 현재 얼마인지 모르고, 금을 팔 때 손해 볼까 걱정한다.";
+      document.getElementById('f-action').value = "무료 금시세 상담 신청";
+    }
+
+    function generateLandings(e) {
+      e.preventDefault();
+      const brand = document.getElementById('f-brand').value.trim();
+      const product = document.getElementById('f-product').value.trim();
+      const target = document.getElementById('f-target').value.trim();
+      const problem = document.getElementById('f-problem').value.trim();
+      const action = document.getElementById('f-action').value.trim();
+      appState.base = { brand, product, target, problem, action };
+      const slug = brand.toLowerCase().replace(/[^a-z0-9가-힣]/g, '').slice(0, 8) || 'page';
+
+      appState.landings = STRATEGY_PRESETS.map((strat) => {
+        const id = `${slug}-${strat.code}`;
+        return {
+          id: id,
+          code: strat.code,
+          strategyName: strat.name,
+          hypothesis: strat.hypothesis,
+          theme: strat.theme,
+          badge: strat.badge,
+          headline: strat.headline(brand, product),
+          subheadline: strat.sub(brand, product),
+          problemSection: strat.problem(problem),
+          ctaText: strat.cta(action),
+          brand: brand,
+          customCode: ""
+        };
+      });
+
+      saveApp();
+      renderMatrixGrid();
+      switchTab('list');
+    }
+
+    // [핵심] 다른 폰에서도 열리는 완전한 포터블 URL 생성기
+    function getShareableURL(item) {
+      const base = window.location.href.split('#')[0];
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(item))));
+      return `${base}#${item.id}?p=${encoded}`;
+    }
+
+    function copyShareableURL(id, btn) {
+      const item = appState.landings.find(l => l.id === id);
+      if (!item) return;
+      const fullUrl = getShareableURL(item);
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        const prev = btn.innerHTML;
+        btn.innerHTML = "✓ 복사완료!";
+        btn.classList.add("bg-emerald-600", "text-white");
+        setTimeout(() => {
+          btn.innerHTML = prev;
+          btn.classList.remove("bg-emerald-600", "text-white");
+        }, 1500);
+      });
+    }
+
+    function copyCurrentURL() {
+      navigator.clipboard.writeText(window.location.href).then(() => alert("현재 독립 페이지 URL이 복사되었습니다!"));
+    }
+
+    function renderMatrixGrid() {
+      const container = document.getElementById('grid-container');
+      container.innerHTML = '';
+      if (!appState.landings || appState.landings.length === 0) return;
+
+      appState.landings.forEach(item => {
+        const fullUrl = getShareableURL(item);
+        const card = document.createElement('div');
+        card.className = "bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between";
+        card.innerHTML = `
+          <div>
+            <div class="flex justify-between items-start mb-2">
+              <span class="font-mono text-xs font-black text-gray-400">#${item.code}</span>
+              <span class="text-[11px] px-2 py-0.5 rounded bg-black text-white font-bold">${item.strategyName}</span>
+            </div>
+            <div class="mb-3 p-2 bg-gray-50 border rounded-lg flex items-center justify-between gap-2">
+              <span class="font-mono text-[11px] text-gray-500 truncate flex-1">${fullUrl}</span>
+              <button onclick="copyShareableURL('${item.id}', this)" class="shrink-0 px-2.5 py-1 text-xs font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100">
+                🔗 URL 복사
+              </button>
+            </div>
+            <div class="text-xs text-gray-500 mb-1">가설: <b class="text-gray-900">${item.hypothesis}</b></div>
+            <h3 class="font-bold text-gray-900 text-sm mb-1 line-clamp-2">${item.headline}</h3>
+            <p class="text-xs text-gray-600 line-clamp-2 mb-4">${item.subheadline}</p>
+          </div>
+          <div class="pt-3 border-t flex justify-between gap-1.5">
+            <a href="${fullUrl}" target="_blank" class="flex-1 py-1.5 text-center bg-blue-50 text-blue-700 text-xs font-bold rounded hover:bg-blue-100">새 탭 열기 ↗</a>
+            <button onclick="openEditModal('${item.id}')" class="py-1.5 px-3 bg-gray-100 text-gray-800 text-xs font-bold rounded hover:bg-gray-200">수정</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function buildLandingHTML(item) {
+      const theme = item.theme || 'minimal';
+      let themeWrap = "theme-minimal";
+      let heroStyle = "bg-white border-b border-gray-100";
+      let btnStyle = "bg-black text-white";
+      let cardStyle = "bg-white border border-gray-200";
+
+      if (theme === 'premium') {
+        themeWrap = "theme-premium font-serif-kr";
+        heroStyle = "bg-[#111317] border-b border-amber-900/40 text-amber-50";
+        btnStyle = "bg-gradient-to-r from-amber-400 to-amber-600 text-black font-black";
+        cardStyle = "bg-[#16181d] border border-amber-900/30 text-gray-200";
+      } else if (theme === 'direct') {
+        themeWrap = "theme-direct";
+        heroStyle = "bg-rose-50/50 border-b border-rose-200";
+        btnStyle = "bg-rose-600 text-white font-black";
+        cardStyle = "bg-white border-2 border-rose-100";
+      } else if (theme === 'trust') {
+        themeWrap = "theme-trust";
+        heroStyle = "bg-slate-900 text-white";
+        btnStyle = "bg-blue-600 text-white font-bold";
+        cardStyle = "bg-white border border-slate-200 text-slate-800";
+      }
+
+      return `
+        <div class="${themeWrap} min-h-full pb-20">
+          <nav class="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center border-b border-black/5">
+            <span class="font-extrabold text-lg">${item.brand}</span>
+            <span class="text-xs opacity-60 font-mono">가설: ${item.strategyName}</span>
+          </nav>
+          <header class="${heroStyle} py-16 px-6 text-center">
+            <div class="max-w-3xl mx-auto">
+              <span class="inline-block px-3 py-1 rounded-full text-xs font-bold border mb-5">${item.badge}</span>
+              <h1 class="text-3xl sm:text-4xl font-black mb-4 tracking-tight leading-tight">${item.headline}</h1>
+              <p class="text-base sm:text-lg opacity-85 mb-8">${item.subheadline}</p>
+              <a href="#lead-form" class="inline-block px-8 py-4 rounded-xl text-base ${btnStyle}">${item.ctaText} →</a>
+            </div>
+          </header>
+          ${item.customCode ? `<div class="max-w-3xl mx-auto px-6 py-4">${item.customCode}</div>` : ''}
+          <section class="max-w-3xl mx-auto px-6 py-10">
+            <div class="p-6 rounded-2xl ${cardStyle}">
+              <h2 class="text-xl font-bold mb-2">왜 지금 확인해야 하는가?</h2>
+              <p class="text-sm opacity-90 leading-relaxed">${item.problemSection}</p>
+            </div>
+          </section>
+          <section id="lead-form" class="max-w-lg mx-auto px-6 py-8">
+            <div class="p-8 rounded-2xl shadow-xl ${cardStyle}">
+              <h3 class="text-xl font-bold text-center mb-4">${item.ctaText}</h3>
+              <form onsubmit="event.preventDefault(); alert('상담 신청이 접수되었습니다!');" class="space-y-3">
+                <input type="text" required placeholder="성함" class="w-full px-3 py-2.5 rounded-lg border text-sm text-gray-900 bg-white">
+                <input type="tel" required placeholder="연락처 (010-0000-0000)" class="w-full px-3 py-2.5 rounded-lg border text-sm text-gray-900 bg-white">
+                <button type="submit" class="w-full py-3.5 mt-2 rounded-xl font-bold text-sm ${btnStyle}">${item.ctaText}</button>
+              </form>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    function openEditModal(id) {
+      const item = appState.landings.find(l => l.id === id);
+      if (!item) return;
+      document.getElementById('edit-target-id').value = item.id;
+      document.getElementById('edit-headline').value = item.headline;
+      document.getElementById('edit-subheadline').value = item.subheadline;
+      document.getElementById('edit-cta').value = item.ctaText;
+      document.getElementById('edit-custom-code').value = item.customCode || "";
+      document.getElementById('modal-edit').classList.remove('hidden');
+    }
+
+    function closeEditModal() {
+      document.getElementById('modal-edit').classList.add('hidden');
+    }
+
+    function applyEditChanges() {
+      const id = document.getElementById('edit-target-id').value;
+      const item = appState.landings.find(l => l.id === id);
+      if (!item) return;
+      item.headline = document.getElementById('edit-headline').value;
+      item.subheadline = document.getElementById('edit-subheadline').value;
+      item.ctaText = document.getElementById('edit-cta').value;
+      item.customCode = document.getElementById('edit-custom-code').value;
+      saveApp();
+      renderMatrixGrid();
+      closeEditModal();
+    }
+
+    function resetAll() {
+      if (confirm("모든 데이터를 초기화하시겠습니까?")) {
+        appState.landings = [];
+        saveApp();
+        renderMatrixGrid();
+        switchTab('input');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
