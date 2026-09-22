@@ -104,15 +104,19 @@
 
     <!-- SCREEN 2: MATRIX LIST -->
     <section id="view-list" class="hidden">
-      <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
-        <div>
-          <h2 class="text-xl font-black">시장 가설 매트릭스 (10개 전략 × 디자인)</h2>
-          <p class="text-xs text-gray-500">각 카드의 <b>[🔗 복사]</b>로 <b>짧은 https 링크</b>가 복사됩니다. 다른 폰에서도 열립니다. <b>[수정]</b>으로 커스텀 코드도 추가할 수 있습니다.</p>
+      <div class="mb-6">
+        <div class="flex flex-wrap justify-between items-center gap-4">
+          <div>
+            <h2 class="text-xl font-black">시장 가설 매트릭스 (10개 전략 × 디자인)</h2>
+            <p class="text-xs text-gray-500">링크는 <b>5.html</b> 처럼 짧은 번호 주소로 복사됩니다. 카피 수정 후 <b>「웹에 게시」</b>를 한 번 눌러야 공개 링크가 갱신됩니다.</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="publishShortLinks()" class="px-3 py-1.5 text-xs bg-emerald-600 text-white font-bold rounded hover:bg-emerald-500 shadow-sm">웹에 게시 (짧은 링크 갱신)</button>
+            <button onclick="downloadJson()" class="px-3 py-1.5 text-xs bg-white border border-gray-300 font-semibold rounded hover:bg-gray-50">JSON 백업</button>
+            <button onclick="resetAll()" class="px-3 py-1.5 text-xs bg-red-50 text-red-700 border border-red-200 font-semibold rounded hover:bg-red-100">초기화</button>
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button onclick="downloadJson()" class="px-3 py-1.5 text-xs bg-white border border-gray-300 font-semibold rounded hover:bg-gray-50">JSON 백업</button>
-          <button onclick="resetAll()" class="px-3 py-1.5 text-xs bg-red-50 text-red-700 border border-red-200 font-semibold rounded hover:bg-red-100">초기화</button>
-        </div>
+        <p id="publish-reminder" class="w-full text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3 hidden">⚡ 새 카피가 생성되었습니다. 번호 링크(1.html~10.html)가 방금 내용과 맞으려면 <b>「웹에 게시 (짧은 링크 갱신)」</b>를 한 번 눌러 주세요.</p>
       </div>
       <div id="grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
     </section>
@@ -546,15 +550,20 @@
       saveApp();
       renderMatrixGrid();
       switchTab('list');
+      const rem = document.getElementById('publish-reminder');
+      if (rem) rem.classList.remove('hidden');
     }
 
     function getFullPageURL(id) {
       const item = (appState.landings && appState.landings.find(l => l.id === id))
         || (__standaloneItem && __standaloneItem.id === id ? __standaloneItem : null);
-      if (!item) {
-        return `${PUBLIC_BASE}?s=01&b=${encodeURIComponent(id || 'page')}`;
+      if (!item || !item.code) {
+        // Fallback: try extract trailing digits from id like page-05
+        const m = String(id || '').match(/(\d{1,2})$/);
+        const n = m ? Number(m[1]) : 1;
+        return `${PUBLIC_BASE}${n}.html`;
       }
-      return buildShareURLFromItem(item);
+      return `${PUBLIC_BASE}${Number(item.code)}.html`;
     }
 
     function writeClipboard(fullUrl, btnElement) {
@@ -591,16 +600,11 @@
     function copyCurrentURL() {
       let url;
       if (__standaloneItem) {
-        url = buildShareURLFromItem(__standaloneItem);
+        url = getFullPageURL(__standaloneItem.id);
       } else {
-        const search = new URLSearchParams(window.location.search);
-        if (search.get('s')) {
-          url = `${PUBLIC_BASE}?${search.toString()}`;
-        } else {
-          const rawHash = window.location.hash.replace(/^#/, '').trim();
-          const idPart = rawHash.split('?')[0];
-          url = getFullPageURL(idPart || 'unknown');
-        }
+        const rawHash = window.location.hash.replace(/^#/, '').trim();
+        const idPart = rawHash.split('?')[0];
+        url = getFullPageURL(idPart || (appState.currentPreviewId || '1'));
       }
       writeClipboard(url, null);
     }
@@ -900,6 +904,153 @@
       appState.landings.push(copy);
       saveApp();
       renderMatrixGrid();
+    }
+
+
+    function escapeHtmlAttr(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function buildStandaloneDocument(item) {
+      const bodyInner = buildLandingHTML(item);
+      const title = `${item.brand || 'Landing'} — ${item.strategyName || item.code || ''}`;
+      return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtmlAttr(title)}</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; margin: 0; }
+    .font-serif-kr { font-family: 'Noto Serif KR', serif; }
+    .theme-premium { background: #0b0c10; color: #f5f5f7; }
+    .theme-direct { background: #ffffff; color: #111827; }
+    .theme-minimal { background: #fafafa; color: #18181b; }
+    .theme-trust { background: #f8fafc; color: #0f172a; }
+    .theme-editorial { background: #fdfbf7; color: #292524; }
+  </style>
+</head>
+<body>
+${bodyInner}
+</body>
+</html>`;
+    }
+
+    function utf8ToBase64(str) {
+      const bytes = new TextEncoder().encode(str);
+      let binary = '';
+      bytes.forEach((b) => { binary += String.fromCharCode(b); });
+      return btoa(binary);
+    }
+
+    async function ensureGhToken() {
+      let token = localStorage.getItem('LF_GH_TOKEN') || '';
+      if (!token) {
+        token = prompt(
+          'GitHub PAT를 입력하세요 (nijohiohc2-arch/landing-factory 에 contents:write).\nclassic 또는 fine-grained 모두 가능합니다.'
+        ) || '';
+        token = token.trim();
+        if (token) localStorage.setItem('LF_GH_TOKEN', token);
+      }
+      return token;
+    }
+
+    async function ghPutFile(token, path, content, message) {
+      const api = `https://api.github.com/repos/nijohiohc2-arch/landing-factory/contents/${path}`;
+      let sha = null;
+      const getRes = await fetch(api, {
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (getRes.ok) {
+        const meta = await getRes.json();
+        sha = meta.sha || null;
+      }
+      const body = {
+        message,
+        content: utf8ToBase64(content),
+        branch: 'main'
+      };
+      if (sha) body.sha = sha;
+      const putRes = await fetch(api, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!putRes.ok) {
+        const errText = await putRes.text();
+        throw new Error(`${path}: ${putRes.status} ${errText.slice(0, 200)}`);
+      }
+      return putRes.json();
+    }
+
+    async function publishShortLinks() {
+      if (!appState.landings || appState.landings.length === 0) {
+        alert('먼저 랜딩을 생성해 주세요.');
+        return;
+      }
+      const token = await ensureGhToken();
+      if (!token) {
+        const sample = getFullPageURL(appState.landings[0].id);
+        alert('토큰이 없어 게시에 실패했습니다.\n무한 랜딩 bot에게 「게시해줘」라고 말씀해 주세요.\n짧은 링크 형식은 그대로 복사됩니다.');
+        writeClipboard(sample, null);
+        return;
+      }
+
+      const campaign = {
+        base: appState.base,
+        landings: appState.landings.map((l) => ({
+          n: Number(l.code),
+          file: `${Number(l.code)}.html`,
+          url: `${PUBLIC_BASE}${Number(l.code)}.html`,
+          code: l.code,
+          strategyName: l.strategyName,
+          theme: l.theme,
+          id: l.id,
+          headline: l.headline,
+          ctaText: l.ctaText
+        })),
+        publishedAt: new Date().toISOString()
+      };
+
+      try {
+        for (const item of appState.landings) {
+          const n = Number(item.code);
+          if (!n || n < 1 || n > 99) continue;
+          const html = buildStandaloneDocument(item);
+          await ghPutFile(token, `${n}.html`, html, `Publish landing ${n}`);
+        }
+        await ghPutFile(token, 'campaign.json', JSON.stringify(campaign, null, 2), 'Publish campaign.json');
+        const rem = document.getElementById('publish-reminder');
+        if (rem) rem.classList.add('hidden');
+        const firstUrl = getFullPageURL(
+          (appState.currentPreviewId && appState.landings.find(l => l.id === appState.currentPreviewId))
+            ? appState.currentPreviewId
+            : appState.landings[0].id
+        );
+        alert(`짧은 링크가 웹에 게시되었습니다!\n예: ${firstUrl}`);
+        writeClipboard(firstUrl, null);
+      } catch (err) {
+        console.error(err);
+        localStorage.removeItem('LF_GH_TOKEN');
+        const sample = getFullPageURL(appState.landings[0].id);
+        alert(`게시 실패: ${err.message || err}\n\n무한 랜딩 bot에게 「게시해줘」라고 말씀해 주세요.\n짧은 링크 형식은 그대로 복사됩니다.`);
+        writeClipboard(sample, null);
+      }
     }
 
     function mockSubmitLead(e) {
