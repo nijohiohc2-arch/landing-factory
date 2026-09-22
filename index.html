@@ -107,7 +107,7 @@
       <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div>
           <h2 class="text-xl font-black">시장 가설 매트릭스 (10개 전략 × 디자인)</h2>
-          <p class="text-xs text-gray-500">각 카드의 <b>[🔗 복사]</b>로 실제 https 공개 링크를 가져오세요 — 어떤 휴대폰에서도 바로 열립니다. <b>[수정]</b>으로 커스텀 코드도 추가할 수 있습니다.</p>
+          <p class="text-xs text-gray-500">각 카드의 <b>[🔗 복사]</b>로 <b>짧은 https 링크</b>가 복사됩니다. 다른 폰에서도 열립니다. <b>[수정]</b>으로 커스텀 코드도 추가할 수 있습니다.</p>
         </div>
         <div class="flex items-center gap-2">
           <button onclick="downloadJson()" class="px-3 py-1.5 text-xs bg-white border border-gray-300 font-semibold rounded hover:bg-gray-50">JSON 백업</button>
@@ -276,7 +276,6 @@
         return JSON.parse(json);
       } catch (e1) {
         try {
-          // Fallback for browsers without escape / older encodings
           const json = decodeURIComponent(Array.from(atob(p), c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''));
           return JSON.parse(json);
         } catch (e2) {
@@ -285,15 +284,115 @@
       }
     }
 
-    function checkHashRoute() {
+    function findStrategy(code) {
+      return STRATEGY_PRESETS.find(s => s.code === String(code).padStart(2, '0')) ||
+             STRATEGY_PRESETS.find(s => s.code === String(code));
+    }
+
+    function buildItemFromShareParams(params) {
+      const code = (params.get('s') || '').padStart(2, '0');
+      const strat = findStrategy(code);
+      if (!strat) return null;
+      const brand = params.get('b') || 'Brand';
+      const product = params.get('p') || '';
+      const problem = params.get('prob') || '';
+      const action = params.get('cta') || '';
+      const theme = params.get('th') || strat.theme;
+      const ascii = brand.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+      const slug = ascii || 'page';
+      const id = `${slug}-${strat.code}`;
+      const item = {
+        id,
+        urlPath: `#${id}`,
+        code: strat.code,
+        strategyName: strat.name,
+        hypothesis: strat.hypothesis,
+        theme,
+        badge: params.has('badge') ? params.get('badge') : strat.badge,
+        headline: params.has('h') ? params.get('h') : strat.headline(brand, product),
+        subheadline: params.has('sub') ? params.get('sub') : strat.sub(brand, product),
+        problemSection: params.has('ps') ? params.get('ps') : strat.problem(problem),
+        ctaText: params.has('ctat') ? params.get('ctat') : strat.cta(action),
+        customCode: '',
+        brand,
+        product,
+        problemSeed: problem,
+        actionSeed: action
+      };
+      // Merge customCode from localStorage if same id/code+brand exists on this device
+      try {
+        const stored = localStorage.getItem('LANDING_FACTORY_STORE');
+        if (stored) {
+          const st = JSON.parse(stored);
+          const local = (st.landings || []).find(l =>
+            l.id === item.id || (l.code === item.code && l.brand === item.brand)
+          );
+          if (local && local.customCode) item.customCode = local.customCode;
+        }
+      } catch (e) {}
+      return item;
+    }
+
+    function buildShareURLFromItem(item) {
+      if (!item || !item.code) return PUBLIC_BASE;
+      const strat = findStrategy(item.code);
+      const brand = item.brand || '';
+      const product = item.product || '';
+      const problem = item.problemSeed != null
+        ? item.problemSeed
+        : ((appState.base && appState.base.problem) || '');
+      const action = item.actionSeed != null
+        ? item.actionSeed
+        : ((appState.base && appState.base.action) || '');
+      const qs = new URLSearchParams();
+      qs.set('s', item.code);
+      qs.set('b', brand);
+      if (product) qs.set('p', product.slice(0, 24));
+      // Keep seeds short so messengers don't truncate the whole link (~300 chars typical)
+      if (problem) qs.set('prob', problem.slice(0, 24));
+      if (action) qs.set('cta', action.slice(0, 20));
+      qs.set('th', item.theme || (strat && strat.theme) || 'minimal');
+      if (strat) {
+        if (item.headline !== strat.headline(brand, product)) qs.set('h', item.headline || '');
+        if (item.subheadline !== strat.sub(brand, product)) qs.set('sub', item.subheadline || '');
+        if (item.badge !== strat.badge) qs.set('badge', item.badge || '');
+        if (item.ctaText !== strat.cta(action)) qs.set('ctat', item.ctaText || '');
+        if (item.problemSection !== strat.problem(problem)) qs.set('ps', item.problemSection || '');
+      } else {
+        if (item.headline) qs.set('h', item.headline);
+        if (item.subheadline) qs.set('sub', item.subheadline);
+        if (item.badge) qs.set('badge', item.badge);
+        if (item.ctaText) qs.set('ctat', item.ctaText);
+        if (item.problemSection) qs.set('ps', item.problemSection);
+      }
+      // Never put customCode in the URL
+      return `${PUBLIC_BASE}?${qs.toString()}`;
+    }
+
+    let __standaloneItem = null;
+
+    function checkShareOrHashRoute() {
+      // 1) Short share query params (?s=02&b=...)
+      const search = new URLSearchParams(window.location.search);
+      if (search.get('s')) {
+        const item = buildItemFromShareParams(search);
+        if (item) {
+          __standaloneItem = item;
+          return showStandalone(item);
+        }
+        __standaloneItem = null;
+        return showStandalone(null, '공유 링크의 전략 코드(s=)를 해석하지 못했습니다. 다시 복사해 주세요.');
+      }
+
       const rawHash = window.location.hash.replace(/^#/, '').trim();
       if (!rawHash) {
+        __standaloneItem = null;
         document.getElementById('standalone-view').classList.add('hidden');
         document.getElementById('admin-app').classList.remove('hidden');
         return false;
       }
 
-      // Support both "#id?p=..." and "#?p=..." shapes
+      // Support both "#id?p=..." and "#?p=..." shapes (legacy base64)
       let idPart = rawHash;
       let payload = null;
       const qIdx = rawHash.indexOf('?');
@@ -303,13 +402,15 @@
         payload = qs.get('p');
       }
 
-      // a) Portable payload in URL — priority (works on any phone without localStorage)
+      // 2) Legacy portable payload — compat only
       if (payload) {
         const item = decodePortablePayload(payload);
         if (item && typeof item === 'object') {
           if (!item.id && idPart) item.id = idPart;
+          __standaloneItem = item;
           return showStandalone(item);
         }
+        __standaloneItem = null;
         return showStandalone(null, '공유 링크의 데이터(p=)를 해석하지 못했습니다. 다시 복사해 주세요.');
       }
 
@@ -321,26 +422,44 @@
         } catch (e) {}
       }
 
-      // b) Look up id in localStorage store
+      // 3) Look up id in localStorage store
       const found = appState.landings ? appState.landings.find(l => l.id === idPart) : null;
       if (found) {
+        __standaloneItem = found;
         return showStandalone(found);
       }
 
-      // c) Friendly empty/error — do NOT blank-screen
+      // 4) Friendly empty/error
+      __standaloneItem = null;
       if (idPart) {
-        return showStandalone(null, `ID "${idPart}" 에 해당하는 랜딩이 이 기기에 없습니다. 공개 https 공유 링크(복사 버튼)를 다시 받아 주세요.`);
+        return showStandalone(null, `ID "${idPart}" 에 해당하는 랜딩이 이 기기에 없습니다. 짧은 https 공유 링크(복사 버튼)를 다시 받아 주세요.`);
       }
       return false;
     }
 
     function exitStandalone() {
-      window.location.hash = '';
-      checkHashRoute();
+      __standaloneItem = null;
+      const isPublicHost = /nijohiohc2-arch\.github\.io$/i.test(window.location.hostname);
+      if (isPublicHost) {
+        window.location.href = PUBLIC_BASE;
+        return;
+      }
+      // file:// or local: clear search + hash carefully
+      try {
+        history.replaceState(null, '', window.location.pathname || './index.html');
+      } catch (e) {
+        window.location.hash = '';
+      }
+      document.getElementById('standalone-view').classList.add('hidden');
+      document.getElementById('admin-app').classList.remove('hidden');
+      if (appState.landings && appState.landings.length > 0) {
+        renderMatrixGrid();
+        switchTab('list');
+      }
     }
 
     function initApp() {
-      if (checkHashRoute()) return;
+      if (checkShareOrHashRoute()) return;
 
       const stored = localStorage.getItem('LANDING_FACTORY_STORE');
       if (stored) {
@@ -357,7 +476,8 @@
       switchTab('input');
     }
 
-    window.addEventListener('hashchange', checkHashRoute);
+    window.addEventListener('hashchange', checkShareOrHashRoute);
+    window.addEventListener('popstate', checkShareOrHashRoute);
 
     function saveApp() {
       localStorage.setItem('LANDING_FACTORY_STORE', JSON.stringify(appState));
@@ -398,7 +518,8 @@
       const problem = document.getElementById('f-problem').value.trim();
       const action = document.getElementById('f-action').value.trim();
       appState.base = { brand, product, target, problem, action };
-      const slug = brand.toLowerCase().replace(/[^a-z0-9가-힣]/g, '').slice(0, 8) || 'gold';
+      const ascii = brand.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+      const slug = ascii || 'page';
 
       appState.landings = STRATEGY_PRESETS.map((strat) => {
         const id = `${slug}-${strat.code}`;
@@ -414,9 +535,11 @@
           subheadline: strat.sub(brand, product),
           problemSection: strat.problem(problem),
           ctaText: strat.cta(action),
-          customCode: "", // 커스텀 코드 저장 필드
+          customCode: "",
           brand: brand,
-          product: product
+          product: product,
+          problemSeed: problem,
+          actionSeed: action
         };
       });
 
@@ -426,21 +549,16 @@
     }
 
     function getFullPageURL(id) {
-      const item = appState.landings ? appState.landings.find(l => l.id === id) : null;
+      const item = (appState.landings && appState.landings.find(l => l.id === id))
+        || (__standaloneItem && __standaloneItem.id === id ? __standaloneItem : null);
       if (!item) {
-        return `${PUBLIC_BASE}#${id}`;
+        return `${PUBLIC_BASE}?s=01&b=${encodeURIComponent(id || 'page')}`;
       }
-      try {
-        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(item))));
-        return `${PUBLIC_BASE}#${item.id}?p=${encoded}`;
-      } catch (e) {
-        return `${PUBLIC_BASE}#${item.id}`;
-      }
+      return buildShareURLFromItem(item);
     }
 
-    function copyPageURL(id, btnElement) {
-      const fullUrl = getFullPageURL(id);
-      navigator.clipboard.writeText(fullUrl).then(() => {
+    function writeClipboard(fullUrl, btnElement) {
+      const done = () => {
         if (btnElement) {
           const originalHTML = btnElement.innerHTML;
           btnElement.innerHTML = `✓ 복사완료!`;
@@ -452,21 +570,39 @@
             btnElement.classList.remove('bg-emerald-600', 'text-white', 'border-emerald-600');
           }, 1500);
         } else {
-          alert(`실제 https 공개 링크가 복사되었습니다!\n어떤 휴대폰에서도 열립니다.\n${fullUrl}`);
+          alert(`짧은 https 링크가 복사되었습니다!\n다른 폰에서도 열립니다.\n${fullUrl}`);
         }
-      });
+      };
+      const fail = () => {
+        prompt('복사할 링크:', fullUrl);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(fullUrl).then(done).catch(fail);
+      } else {
+        fail();
+      }
+    }
+
+    function copyPageURL(id, btnElement) {
+      const fullUrl = getFullPageURL(id);
+      writeClipboard(fullUrl, btnElement);
     }
 
     function copyCurrentURL() {
-      // Prefer regenerating a portable PUBLIC_BASE link when we know the id
-      const rawHash = window.location.hash.replace(/^#/, '').trim();
-      const idPart = rawHash.split('?')[0];
-      const url = (idPart && appState.landings && appState.landings.find(l => l.id === idPart))
-        ? getFullPageURL(idPart)
-        : (window.location.href.startsWith('http') ? window.location.href : getFullPageURL(idPart || 'unknown'));
-      navigator.clipboard.writeText(url).then(() => {
-        alert("실제 https 공개 링크가 복사되었습니다!\n어떤 휴대폰에서도 열립니다.");
-      });
+      let url;
+      if (__standaloneItem) {
+        url = buildShareURLFromItem(__standaloneItem);
+      } else {
+        const search = new URLSearchParams(window.location.search);
+        if (search.get('s')) {
+          url = `${PUBLIC_BASE}?${search.toString()}`;
+        } else {
+          const rawHash = window.location.hash.replace(/^#/, '').trim();
+          const idPart = rawHash.split('?')[0];
+          url = getFullPageURL(idPart || 'unknown');
+        }
+      }
+      writeClipboard(url, null);
     }
 
     function copyCurrentPreviewURL() {
